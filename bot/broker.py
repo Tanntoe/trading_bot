@@ -4,6 +4,7 @@ Centralizes all direct calls to the Alpaca API so the rest of the bot never
 talks to `alpaca_trade_api` directly. This is where connection errors,
 rate limits and market-closed states are handled and retried.
 """
+import datetime as dt
 import logging
 import time
 from typing import List, Optional
@@ -84,13 +85,46 @@ class AlpacaBroker:
                 limit=limit,
                 adjustment="raw",
             )
-        df = bars.df
+        return self._normalize_bars(bars.df, instrument.symbol)
+
+    def get_historical_bars(self, instrument: "config.InstrumentConfig",
+                             start: dt.datetime, end: dt.datetime) -> pd.DataFrame:
+        """Returns every OHLCV bar for the instrument's configured timeframe
+        between start and end (inclusive), for backtesting. Unlike get_bars,
+        this has no `limit` cap - the SDK pages through the full date range."""
+        tf = self.timeframe(instrument.timeframe_amount, instrument.timeframe_unit)
+        start_str = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_str = end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        if instrument.asset_class == "crypto":
+            bars = self._with_retry(
+                f"get_crypto_bars({instrument.symbol}, historical)",
+                self.api.get_crypto_bars,
+                instrument.symbol,
+                tf,
+                start=start_str,
+                end=end_str,
+            )
+        else:
+            bars = self._with_retry(
+                f"get_bars({instrument.symbol}, historical)",
+                self.api.get_bars,
+                instrument.symbol,
+                tf,
+                start=start_str,
+                end=end_str,
+                adjustment="raw",
+            )
+        return self._normalize_bars(bars.df, instrument.symbol)
+
+    @staticmethod
+    def _normalize_bars(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
         if df is None or df.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
         # Multi-symbol responses (SIP feed) sometimes include a 'symbol' column;
         # normalize to a single-symbol OHLCV frame.
         if "symbol" in df.columns:
-            df = df[df["symbol"] == instrument.symbol]
+            df = df[df["symbol"] == symbol]
         return df[["open", "high", "low", "close", "volume"]]
 
     def get_account_equity(self) -> float:

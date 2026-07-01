@@ -7,4 +7,5 @@ venv/
 trades.csv
 daily_pnl.csv
 bot.log
+backtest_results.png
 .DS_Store

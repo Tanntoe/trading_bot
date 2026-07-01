@@ -42,6 +42,12 @@ def timeframe_seconds(instrument: config.InstrumentConfig) -> int:
     return instrument.timeframe_amount * _UNIT_SECONDS[instrument.timeframe_unit]
 
 
+def evaluation_window_size(instrument: config.InstrumentConfig) -> int:
+    """How many trailing bars to feed a strategy's evaluate() call. Shared by
+    the live loop and the backtester so both see identical indicator inputs."""
+    return max(300, instrument.params.get("slow_ema", 0) + 20)
+
+
 class TradingBot:
     def __init__(self):
         self.broker = AlpacaBroker()
@@ -134,7 +140,7 @@ class TradingBot:
     # -- Signal evaluation (once per candle interval) --------------------- #
 
     def _evaluate_and_trade(self, symbol: str, instrument: config.InstrumentConfig):
-        df = self.broker.get_bars(instrument, limit=max(300, instrument.params.get("slow_ema", 0) + 20))
+        df = self.broker.get_bars(instrument, limit=evaluation_window_size(instrument))
         if df.empty:
             logger.warning("No bar data returned for %s; skipping.", symbol)
             return
