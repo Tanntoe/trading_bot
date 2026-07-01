@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+trades.csv
+daily_pnl.csv
+bot.log
+.DS_Store
