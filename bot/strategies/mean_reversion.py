@@ -1,9 +1,14 @@
 """Strategy 1: Mean Reversion (SPY, QQQ).
 
-15-minute candles. A 20-period SMA and rolling std-dev define a band.
-Go long when price is more than `entry_std_dev` standard deviations below
-the mean (expecting a revert up), go short when it's the same distance
-above the mean. Exit when price returns to the mean.
+15-minute candles. A 20-period SMA and rolling std-dev define a band,
+computed from the bars prior to the current one (mirroring the
+momentum-breakout strategy's convention) so the current bar's own move
+doesn't widen the very band it's being tested against - without this, an
+extreme bar inflates its own std-dev and can partially mask itself,
+producing jumpy entries/exits. Go long when price is more than
+`entry_std_dev` standard deviations below the mean (expecting a revert
+up), go short when it's the same distance above the mean. Exit when
+price returns to the mean.
 """
 import logging
 
@@ -22,8 +27,10 @@ def evaluate(df: pd.DataFrame, instrument, current_side: str = None) -> Signal:
     if len(df) < lookback + 1:
         return Signal(HOLD, reason="not enough bars")
 
-    mean = indicators.sma(df["close"], lookback)
-    std = indicators.rolling_std(df["close"], lookback)
+    # Shift by 1 so the band is computed from the prior N bars, excluding
+    # the bar we are currently evaluating (see module docstring).
+    mean = indicators.sma(df["close"], lookback).shift(1)
+    std = indicators.rolling_std(df["close"], lookback).shift(1)
 
     price = df["close"].iloc[-1]
     mean_last = mean.iloc[-1]
