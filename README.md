@@ -37,6 +37,7 @@ bot/
   risk_manager.py                  ATR position sizing, stop pricing, correlation filter
   trade_logger.py                  trades.csv / daily_pnl.csv writers
   main.py                          continuous polling loop, order execution
+  backtest.py                      historical backtester for all 3 strategies
   strategies/
     base.py                        shared Signal type
     mean_reversion.py              Strategy 1 (SPY, QQQ)
@@ -64,6 +65,25 @@ The bot defaults to Alpaca's **paper trading** endpoint. Only point
 `ALPACA_BASE_URL` at the live endpoint once you've validated behavior on
 paper. Equity instruments (SPY, QQQ, GLD, USO) are automatically skipped
 outside regular market hours; BTC/USD is checked continuously, 24/7.
+
+## Backtesting
+
+```bash
+python -m bot.backtest                              # default: 6 months, $100k
+python -m bot.backtest --months 3 --starting-equity 50000 --output backtest_results.png
+```
+
+Pulls historical bars from Alpaca (15m for SPY/QQQ, 1h for BTC/USD, 4h for
+GLD/USO) plus a warm-up buffer so indicators are already primed at the start
+of the reported test window, then replays the exact same strategy/risk logic
+used live (same `evaluate()` functions, same `RiskManager` sizing/stops) bar
+by bar. Applies 0.05% slippage against the trader on every fill and $0
+commission. Reports, per instrument and for the combined portfolio (with the
+SPY/QQQ-vs-BTC/USD correlation filter active): total trades, win rate,
+average win/loss, profit factor, max drawdown, Sharpe ratio, and total
+return, printed as a summary table and plotted to `backtest_results.png`.
+Any instrument with a negative Sharpe ratio over the test period is flagged
+explicitly at the end of the run.
 
 ## Logs
 
