@@ -60,7 +60,7 @@ INSTRUMENTS: Dict[str, InstrumentConfig] = {
         strategy=MEAN_REVERSION,
         timeframe_amount=15,
         timeframe_unit="Minute",
-        params={"lookback": 50, "entry_std_dev": 2.5},
+        params={"lookback": 50, "entry_std_dev": 2.5, "trend_ema_period": 100},
     ),
     "QQQ": InstrumentConfig(
         symbol="QQQ",
@@ -68,7 +68,7 @@ INSTRUMENTS: Dict[str, InstrumentConfig] = {
         strategy=MEAN_REVERSION,
         timeframe_amount=15,
         timeframe_unit="Minute",
-        params={"lookback": 50, "entry_std_dev": 2.8},
+        params={"lookback": 50, "entry_std_dev": 2.8, "trend_ema_period": 100},
     ),
     "BTC/USD": InstrumentConfig(
         symbol="BTC/USD",

@@ -9,6 +9,14 @@ producing jumpy entries/exits. Go long when price is more than
 `entry_std_dev` standard deviations below the mean (expecting a revert
 up), go short when it's the same distance above the mean. Exit when
 price returns to the mean.
+
+Optional regime filter (`trend_ema_period`): a longer-period EMA used to
+tell a genuine dip-in-an-uptrend from the start of a real breakdown (and
+the mirror case for shorts). Backtesting against real data showed that
+without this, "buy the dip" kept getting run over by price continuing to
+trend down instead of reverting - a long is only taken while price is
+still above this longer-term trend line, a short only while price is
+still below it.
 """
 import logging
 
@@ -23,6 +31,7 @@ logger = logging.getLogger(__name__)
 def evaluate(df: pd.DataFrame, instrument, current_side: str = None) -> Signal:
     lookback = instrument.params["lookback"]
     entry_std_dev = instrument.params["entry_std_dev"]
+    trend_ema_period = instrument.params.get("trend_ema_period")
 
     if len(df) < lookback + 1:
         return Signal(HOLD, reason="not enough bars")
@@ -52,9 +61,16 @@ def evaluate(df: pd.DataFrame, instrument, current_side: str = None) -> Signal:
             return Signal(CLOSE, reason="reverted to mean", price=price)
         return Signal(HOLD, price=price)
 
-    if price <= lower_band:
-        return Signal(OPEN_LONG, reason=f"price {price:.2f} <= lower band {lower_band:.2f}", price=price)
-    if price >= upper_band:
-        return Signal(OPEN_SHORT, reason=f"price {price:.2f} >= upper band {upper_band:.2f}", price=price)
+    trend_allows_long, trend_allows_short = True, True
+    if trend_ema_period and len(df) >= trend_ema_period:
+        trend_ema_last = indicators.ema(df["close"], trend_ema_period).iloc[-1]
+        if not pd.isna(trend_ema_last):
+            trend_allows_long = price >= trend_ema_last
+            trend_allows_short = price <= trend_ema_last
+
+    if price <= lower_band and trend_allows_long:
+        return Signal(OPEN_LONG, reason=f"price {price:.2f} <= lower band {lower_band:.2f}, above trend EMA", price=price)
+    if price >= upper_band and trend_allows_short:
+        return Signal(OPEN_SHORT, reason=f"price {price:.2f} >= upper band {upper_band:.2f}, below trend EMA", price=price)
 
     return Signal(HOLD, price=price)
